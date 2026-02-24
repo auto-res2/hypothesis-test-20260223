@@ -1,0 +1,28 @@
+run_id: comparative-0-gpt4o-gsm8k
+
+method:
+  type: comparative-0
+  name: standard-cot
+  prompt_template: |
+    Let's solve this math problem step by step.
+    
+    Problem: {question}
+    
+    Think step-by-step and provide your final answer as: "The answer is: [number]"
+
+model:
+  provider: openai
+  name: gpt-4o
+  temperature: 0.0
+  max_tokens: 512
+
+dataset:
+  name: gsm8k
+  split: test
+  cache_dir: .cache
+
+inference:
+  batch_size: 16
+  max_concurrent: 32
+  save_outputs: true
+  answer_format: numeric

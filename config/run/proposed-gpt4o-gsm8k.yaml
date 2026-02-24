@@ -1,0 +1,33 @@
+run_id: proposed-gpt4o-gsm8k
+
+method:
+  type: proposed
+  name: human-aligned-cot
+  prompt_template: |
+    You are solving a math problem. Follow these cognitive phases:
+    
+    1. DECOMPOSE: Break down the problem into smaller sub-problems.
+    2. ANALOGIZE: Think of similar problems or patterns you've seen.
+    3. VERIFY: Check each step for logical consistency.
+    4. FINAL: Provide the final numerical answer.
+    
+    Problem: {question}
+    
+    Think step-by-step and provide your final answer as: "The answer is: [number]"
+
+model:
+  provider: openai
+  name: gpt-4o
+  temperature: 0.0
+  max_tokens: 512
+
+dataset:
+  name: gsm8k
+  split: test
+  cache_dir: .cache
+
+inference:
+  batch_size: 16
+  max_concurrent: 32
+  save_outputs: true
+  answer_format: numeric

@@ -1,0 +1,36 @@
+run_id: proposed-gpt4o-arc
+
+method:
+  type: proposed
+  name: human-aligned-cot
+  prompt_template: |
+    You are solving a multiple-choice science question. Follow these cognitive phases:
+    
+    1. DECOMPOSE: Break down the question into key concepts and requirements.
+    2. ANALOGIZE: Think of related scientific principles or examples.
+    3. VERIFY: Check each answer choice against your reasoning.
+    4. FINAL: Select the best answer choice.
+    
+    Question: {question}
+    
+    Choices:
+    {choices}
+    
+    Think step-by-step and provide your final answer as: "The answer is: [A/B/C/D]"
+
+model:
+  provider: openai
+  name: gpt-4o
+  temperature: 0.0
+  max_tokens: 512
+
+dataset:
+  name: arc-challenge
+  split: test
+  cache_dir: .cache
+
+inference:
+  batch_size: 16
+  max_concurrent: 32
+  save_outputs: true
+  answer_format: multiple_choice
