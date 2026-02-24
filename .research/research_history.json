@@ -1,0 +1,60 @@
+{
+  "research_topic": "Improved Chain-of-Thought prompting aligned with human thinking",
+  "research_hypothesis": {
+    "open_problems": "Current Chain-of-Thought prompting lacks explicit alignment with human cognitive steps, leading to suboptimal reasoning on multi-step tasks.",
+    "method": "Introduce a structured prompt template that mirrors human thinking phases (problem decomposition, analogical reasoning, verification) without any model fine-tuning.",
+    "experimental_setup": "Evaluate on GSM8K and ARC-Challenge benchmarks using GPT-4o with the proposed prompt template vs. standard CoT baseline.",
+    "primary_metric": "Accuracy (%) on GSM8K and ARC-Challenge test sets.",
+    "experimental_code": "Run evaluation scripts using the OpenAI API with temperature=0 for reproducibility.",
+    "expected_result": "The proposed human-aligned CoT template achieves at least 3% higher accuracy than standard CoT on both benchmarks.",
+    "expected_conclusion": "Structuring prompts to reflect human cognitive phases improves LLM reasoning without requiring fine-tuning."
+  },
+  "experimental_design": {
+    "experiment_summary": "Task: have an LLM solve multi-step reasoning problems and produce a single final answer (a number for GSM8K; a multiple-choice option A/B/C/D for ARC-Challenge), then score correctness against gold labels.\n\nPurpose: test whether a human-aligned, phase-structured prompting template (Decompose → Analogize → Verify → Final) improves zero-shot reasoning accuracy compared with a standard Chain-of-Thought (CoT) prompt, without any fine-tuning.\n\nWorkflow:\n1) Load GSM8K test (1319 problems) and ARC-Challenge test (1172 questions).\n2) For each example, query the same base model (temperature=0, max_tokens capped) under two prompting conditions:\n   - Baseline: standard CoT prompt.\n   - Proposed: structured “human cognitive phases” prompt template (decomposition, analogical reasoning, verification).\n3) Parse the model’s final answer into a normalized form (numeric for GSM8K; option letter for ARC).\n4) Compute accuracy per benchmark and the combined macro average; run paired significance tests via bootstrap over items.\n5) Report accuracy deltas and error breakdowns (wrong answer vs. unparseable/format violations).\n\nScale fit to Runner (self-hosted, gpu-runner; H200 140GB VRAM, 240GB RAM): the experiment is inference-only via API and lightweight CPU/RAM usage. To ensure it fits time/throughput constraints, use:\n- Deterministic decoding (temperature=0) and capped outputs (e.g., max_tokens=512) to bound latency/cost.\n- Asynchronous batching with conservative concurrency (e.g., 16–64 in-flight requests depending on provider limits).\n- Local caching of API responses and checkpointing every N examples to allow resume.\n- Optional “quick check” mode (e.g., first 200 items per dataset) for debugging before full test-set runs.",
+    "runner_config": {
+      "runner_label": [
+        "self-hosted",
+        "gpu-runner"
+      ],
+      "description": "NVIDIA H200, VRAM: 140 GB, RAM: 240 GB"
+    },
+    "evaluation_metrics": [
+      {
+        "name": "Accuracy (%) on GSM8K and ARC-Challenge test sets.",
+        "description": "Correctness criteria:\n- GSM8K: A prediction is correct if the extracted final numeric answer matches the gold numeric answer exactly after normalization. Normalization: strip commas/whitespace, allow leading ‘$’, convert to Decimal if possible; treat integers and decimals as exact string-equal after canonicalization (e.g., ‘12.0’ → ‘12’). If the gold is an integer and the model outputs an equivalent integer-form number, mark correct. If parsing fails, mark incorrect.\n- ARC-Challenge: A prediction is correct if the extracted final option letter ∈ {A,B,C,D} matches the gold answerKey (case-insensitive). If multiple letters are produced, use the last explicitly stated final choice; if none parse, mark incorrect.\n\nCalculation method:\nFor each dataset d ∈ {GSM8K, ARC-Challenge}:\n  Accuracy_d(%) = 100 * (1/N_d) * Σ_i 1[pred_i == gold_i]\nReport both per-dataset accuracies and the macro-average across the two datasets:\n  MacroAcc(%) = (Accuracy_GSM8K + Accuracy_ARC)/2\n\nTask appropriateness:\nBoth benchmarks are discrete-answer reasoning tasks where success is defined by reaching the correct final answer, making accuracy the most direct and comparable metric across prompting methods.\n\nRelevant visualizations:\n- Bar chart of accuracy per method per dataset with 95% bootstrap confidence intervals.\n- Paired delta plot (proposed − baseline) with bootstrap CI for each dataset."
+      },
+      {
+        "name": "Unparseable/Format Violation Rate (%)",
+        "description": "Correctness criteria:\n- Count a response as unparseable if the evaluator cannot extract a final numeric answer (GSM8K) or a valid option letter A–D (ARC-Challenge) from the model output using the specified parsing rules.\n\nCalculation method:\nFor each dataset d:\n  UnparseableRate_d(%) = 100 * (1/N_d) * Σ_i 1[parse_failed_i]\n\nTask appropriateness:\nPrompt templates can change verbosity/formatting; separating parsing/format failures from genuine reasoning errors helps interpret accuracy differences and ensures fairness.\n\nRelevant visualizations:\n- Stacked bar chart: {correct, wrong, unparseable} proportions by method and dataset."
+      },
+      {
+        "name": "Bootstrap Paired Significance (p-value)",
+        "description": "Correctness criteria:\n- Use paired comparison because the same items are evaluated under both prompts.\n\nCalculation method:\n- For each dataset, compute per-item correctness difference Δ_i = correct_proposed_i − correct_baseline_i.\n- Bootstrap B=10,000 resamples of items with replacement; compute mean(Δ) for each resample.\n- Two-sided p-value estimated as 2 * min(P(mean(Δ) ≤ 0), P(mean(Δ) ≥ 0)). Also report 95% percentile CI for mean(Δ) and translate to percentage-point accuracy delta.\n\nTask appropriateness:\nAccuracy differences of ~3% can be sensitive to sample size; bootstrap CIs/p-values quantify whether improvements are robust rather than noise.\n\nRelevant visualizations:\n- Histogram/density plot of bootstrap mean(Δ) with zero line and 95% CI markers."
+      }
+    ],
+    "models_to_use": [
+      "GPT-4o (params: undisclosed; OpenAI API)"
+    ],
+    "datasets_to_use": [
+      "GSM8K + ARC-Challenge (HF sources: openai/gsm8k and allenai/ai2_arc; evaluated on official test splits)"
+    ],
+    "proposed_method": {
+      "method_name": "Human-Aligned Phased CoT Prompting (HAP-CoT)",
+      "description": "Inference-only prompting template that explicitly structures reasoning into human-like phases: (1) Problem Decomposition (identify givens/unknowns/subtasks), (2) Analogical Reasoning (map to known patterns/operations), (3) Verification (check units, constraints, recompute key steps), followed by (4) Final Answer in a strict format. No model fine-tuning; only prompt structure changes.",
+      "optuna_config": {
+        "enabled": false,
+        "n_trials": 20
+      }
+    },
+    "comparative_methods": [
+      {
+        "method_name": "Standard Chain-of-Thought Prompting (CoT-Baseline)",
+        "description": "Conventional zero-shot Chain-of-Thought prompt (e.g., ‘Let’s think step by step.’) without explicit decomposition/analogy/verification phases; same model and decoding settings.",
+        "optuna_config": {
+          "enabled": false,
+          "n_trials": 20
+        }
+      }
+    ]
+  }
+}
