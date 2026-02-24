@@ -1,6 +1,17 @@
 """Evaluation script for aggregating results from WandB and generating comparison plots."""
 
-import argparse
+# [VALIDATOR FIX - Attempt 1]
+# [PROBLEM]: evaluate.py was called with Hydra-style arguments (results_dir="..." run_ids='...') but used argparse
+# [CAUSE]: Workflow passes Hydra-style CLI args but evaluate.py expected argparse-style (--results_dir, --run_ids)
+# [FIX]: Converted evaluate.py from argparse to Hydra to match the calling convention
+#
+# [OLD CODE]:
+# import argparse
+#
+# [NEW CODE]:
+import hydra
+from omegaconf import DictConfig
+
 import json
 import os
 from pathlib import Path
@@ -221,27 +232,40 @@ def create_comparison_plots(
     print(f"  Gap: {gap:.4f}")
 
 
-def main():
+# [VALIDATOR FIX - Attempt 1]
+# [PROBLEM]: main() used argparse which doesn't match the Hydra-style calling convention
+# [CAUSE]: Workflow passes arguments as key=value (Hydra style), not --key value (argparse style)
+# [FIX]: Replaced argparse with Hydra decorator and DictConfig parameter
+#
+# [OLD CODE]:
+# def main():
+#     """Main evaluation script."""
+#     parser = argparse.ArgumentParser(description="Evaluate and compare runs from WandB")
+#     parser.add_argument("--results_dir", type=str, required=True, help="Results directory")
+#     parser.add_argument("--run_ids", type=str, required=True, help="JSON list of run IDs")
+#     parser.add_argument("--entity", type=str, default=None, help="WandB entity (optional)")
+#     parser.add_argument("--project", type=str, default=None, help="WandB project (optional)")
+#     args = parser.parse_args()
+#     run_ids = json.loads(args.run_ids)
+#     entity = args.entity or os.getenv("WANDB_ENTITY", "airas")
+#     project = args.project or os.getenv("WANDB_PROJECT", "2026-0223-hypothesis")
+#     results_dir = Path(args.results_dir)
+#
+# [NEW CODE]:
+@hydra.main(config_path=None, version_base=None)
+def main(cfg: DictConfig):
     """Main evaluation script."""
-    parser = argparse.ArgumentParser(description="Evaluate and compare runs from WandB")
-    parser.add_argument("--results_dir", type=str, required=True, help="Results directory")
-    parser.add_argument("--run_ids", type=str, required=True, help="JSON list of run IDs")
-    parser.add_argument("--entity", type=str, default=None, help="WandB entity (optional)")
-    parser.add_argument("--project", type=str, default=None, help="WandB project (optional)")
-    
-    args = parser.parse_args()
-    
     # Parse run_ids from JSON string
-    run_ids = json.loads(args.run_ids)
+    run_ids = json.loads(cfg.run_ids)
     
     # Get WandB config from args or environment
-    entity = args.entity or os.getenv("WANDB_ENTITY", "airas")
-    project = args.project or os.getenv("WANDB_PROJECT", "2026-0223-hypothesis")
+    entity = cfg.get("entity", os.getenv("WANDB_ENTITY", "airas"))
+    project = cfg.get("project", os.getenv("WANDB_PROJECT", "2026-0223-hypothesis"))
     
     print(f"Fetching results from WandB: {entity}/{project}")
     print(f"Run IDs: {run_ids}")
     
-    results_dir = Path(args.results_dir)
+    results_dir = Path(cfg.results_dir)
     results_dir.mkdir(parents=True, exist_ok=True)
     
     # Fetch data for all runs
