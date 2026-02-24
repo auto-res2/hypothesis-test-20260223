@@ -132,6 +132,19 @@ async def run_inference_async(cfg: DictConfig):
             raise ValueError(f"Unknown dataset: {cfg.run.dataset.name}")
         prompts.append(prompt)
     
+    # [VALIDATOR FIX - Attempt 1]
+    # [PROBLEM]: 0% accuracy - model responses are misaligned with questions
+    # [CAUSE]: asyncio.as_completed() returns futures in completion order, not submission order,
+    #          causing responses to be paired with wrong examples
+    # [FIX]: Use asyncio.gather() to preserve order of results
+    #
+    # [OLD CODE]:
+    # results = []
+    # for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Querying API"):
+    #     result = await f
+    #     results.append(result)
+    #
+    # [NEW CODE]:
     # Run inference
     print(f"Running inference with {max_concurrent} concurrent requests...")
     tasks = [
@@ -146,10 +159,12 @@ async def run_inference_async(cfg: DictConfig):
         for prompt in prompts
     ]
     
+    # Use asyncio.gather to preserve order
     results = []
-    for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Querying API"):
-        result = await f
-        results.append(result)
+    with tqdm(total=len(tasks), desc="Querying API") as pbar:
+        # Gather all results while maintaining order
+        results = await asyncio.gather(*tasks)
+        pbar.update(len(tasks))
     
     # Parse answers and compute accuracy
     correct = 0
